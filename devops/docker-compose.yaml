@@ -1,0 +1,138 @@
+name: django_celery_redis
+
+services:
+  db:
+    container_name: "django_celery_redis_db"
+    image: postgres:17
+    restart: no
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 5s
+      start_period: 10s
+      start_interval: 1s
+      timeout: 1s
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  redis:
+    container_name: django_celery_redis_redis
+    image: redis:latest
+    expose:
+      - "6379"
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+
+  backend:
+    container_name: django_celery_redis_backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    env_file:
+      - ../backend/.env
+    links:
+      - mailpit:smtp
+    volumes:
+      - type: bind
+        source: ../backend/
+        target: /app/
+        read_only: false
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+        required: true
+
+  celery:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.celery
+    restart: no
+    links:
+      - mailpit:smtp
+    env_file:
+      - ../backend/.env
+    command: celery -A init worker -l info
+    #    command: celery -A ${APP_NAME} worker -l DEBUG
+    working_dir: /app
+    depends_on:
+      - redis
+      - db
+
+  celery_beat:
+    command: celery -A init beat -l info
+    #    command: celery -A ${APP_NAME} beat -l INFO
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.celery
+    working_dir: /app
+    env_file:
+      - ../backend/.env
+    depends_on:
+      - redis
+
+  flower:
+    image: mher/flower:2.0.1  # lightweight Celery monitoring
+    container_name: django_celery_redis_flower
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.celery
+    working_dir: /app
+    env_file:
+      - ../backend/.env
+    ports:
+      - "5555:5555"
+    command: celery -A init flower --concurrency=2 -l info
+    depends_on:
+      - redis
+      - celery
+
+  # Lightweight, read-only Postgres GUI browser. Not meant for editing.
+  db-web-ui:
+    image: sosedoff/pgweb:0.14.3
+    command:
+      - "--listen"
+      - "80"
+      - "--url"
+      - "postgres:///?user=postgres&password=postgres&sslmode=disable&host=db"
+      - "--open-timeout"
+      - "5"
+      # - "--debug"
+    ports:
+      - "5051:80"
+    depends_on:
+      db:
+        condition: service_healthy
+        required: true
+
+  # Test by running: swaks --to youremail@example.com --server localhost:1025
+  mailpit:
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - 1025:1025
+      - 8025:8025
+    environment:
+      - MP_MAX_MESSAGES=5000
+      - MP_DATA_FILE=/data/mailpit.db
+      - MP_SMTP_AUTH_ACCEPT_ANY=1
+      - MP_SMTP_AUTH_ALLOW_INSECURE=1
+    volumes:
+      - type: bind
+        source: ../data/email/
+        target: /data/
+        read_only: false
+volumes:
+  pg_data:
+  redis_data:
