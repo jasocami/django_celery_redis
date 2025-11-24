@@ -5,10 +5,8 @@ services:
     container_name: "django_celery_redis_db"
     image: postgres:17
     restart: no
-    environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+    env_file:
+      - .env.db
     ports:
       - "5432:5432"
     healthcheck:
