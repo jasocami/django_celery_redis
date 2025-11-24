@@ -4,7 +4,7 @@ Base template project containing different kind of services for a complete local
 
 ## Apps
 
-In this project accounts app is included extending Django's default app 
+In this project accounts app is included extending Django's default app.
 
 ## Services included
 
@@ -29,7 +29,9 @@ User interface links to access to different services:
 
 ## TO-DO list
 
-Fix dependency in services, wait to load redis before loading celery
+Fix dependency in docker compose services, wait to load redis before loading celery.
+
+Add a Makefile for easy run and management.
 
 Add and configure these libraries:
 
@@ -38,4 +40,4 @@ Add and configure these libraries:
 - DRF spectacular (drf-spectacular)
 - DRF JWT (djangorestframework-simplejwt)
 
-After adding these libs, fork the project and convert it to cookiecutter template
+After adding these libs, fork this project and convert it to a cookiecutter template.
