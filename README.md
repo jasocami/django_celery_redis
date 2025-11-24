@@ -29,8 +29,6 @@ User interface links to access to different services:
 
 ## TO-DO list
 
-Fix dependency in docker compose services, wait to load redis before loading celery.
-
 Add a Makefile for easy run and management.
 
 Add and configure these libraries:

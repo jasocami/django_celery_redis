@@ -26,6 +26,12 @@ services:
     ports:
       - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      start_period: 10s
+      start_interval: 1s
+      timeout: 1s
     volumes:
       - redis_data:/data
 
@@ -64,9 +70,19 @@ services:
     command: celery -A init worker -l info
     #    command: celery -A ${APP_NAME} worker -l DEBUG
     working_dir: /app
+    healthcheck:
+      test: [ "CMD", "celery", "-A", "init", "inspect", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
-      - redis
-      - db
+      redis:
+        condition: service_healthy
+        required: true
+      db:
+        condition: service_healthy
+        required: true
 
   celery_beat:
     command: celery -A init beat -l info
@@ -78,7 +94,9 @@ services:
     env_file:
       - ../backend/.env
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+        required: true
 
   flower:
     image: mher/flower:2.0.1  # lightweight Celery monitoring
@@ -93,8 +111,12 @@ services:
       - "5555:5555"
     command: celery -A init flower --concurrency=2 -l info
     depends_on:
-      - redis
-      - celery
+      redis:
+        condition: service_healthy
+        required: true
+      celery:
+        condition: service_healthy
+        required: true
 
   # Lightweight, read-only Postgres GUI browser. Not meant for editing.
   db-web-ui:
